@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Callable
 
 import discord
 from discord import app_commands
@@ -13,7 +14,7 @@ def _has_role(member: discord.Member, role_name: str) -> bool:
     return any(role.name == role_name for role in member.roles)
 
 
-def prefix_admin_check(role_name: str | None = None) -> commands.Check:
+def prefix_admin_check(role_name: str | None = None) -> Callable[[commands.Context], bool]:
     def predicate(ctx: commands.Context) -> bool:
         if ctx.guild is None:
             raise commands.CheckFailure("This command can only be used in a server.")
