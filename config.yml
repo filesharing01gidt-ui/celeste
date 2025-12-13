@@ -1,5 +1,5 @@
 prefix: "!"
-admin_role_name: "Prod"
+admin_role_ids: []
 log_level: "INFO"
 data_dir: "data"
 dev_guild_id: null

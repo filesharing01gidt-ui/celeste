@@ -172,7 +172,7 @@ class Countdown(commands.Cog):
 
         embed = discord.Embed(
             title=":white_check_mark: Countdown complete!",
-            description=f"Ended <t:{entry.end_ts}:R>, on <t:{entry.end_ts}:t>",
+            description=f"Ended <t:{entry.end_ts}:R>, at <t:{entry.end_ts}:t>",
             color=EMBED_COLOR,
         )
         embed.set_footer(text=f"ID: {entry.id}")
@@ -197,7 +197,7 @@ class Countdown(commands.Cog):
     def _build_started_embed(self, entry: CountdownEntry) -> discord.Embed:
         embed = discord.Embed(
             title=":timer: Countdown Started!",
-            description=f"Ends <t:{entry.end_ts}:R>, on <t:{entry.end_ts}:t>",
+            description=f"Ends <t:{entry.end_ts}:R>, at <t:{entry.end_ts}:t>",
             color=EMBED_COLOR,
         )
         embed.set_footer(text=f"ID: {entry.id}")
@@ -208,8 +208,9 @@ class Countdown(commands.Cog):
         return embed
 
     def _has_admin_role(self, member: discord.Member) -> bool:
-        expected = getattr(self.bot.config, "admin_role_name", None)
-        return expected is not None and any(role.name == expected for role in member.roles)
+        expected_roles = getattr(self.bot.config, "admin_role_ids", [])
+        expected_ids = {int(role_id) for role_id in expected_roles}
+        return bool(expected_ids) and any(role.id in expected_ids for role in member.roles)
 
     @app_commands.command(name="countdown", description="Start a countdown")
     @app_commands.describe(

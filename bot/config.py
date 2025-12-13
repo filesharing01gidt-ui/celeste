@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 @dataclass
 class BotConfig:
     prefix: str
-    admin_role_name: str
+    admin_role_ids: list[int]
     log_level: str
     data_dir: Path
     dev_guild_id: Optional[int]
@@ -21,7 +21,7 @@ class BotConfig:
 
 DEFAULT_CONFIG = {
     "prefix": "!",
-    "admin_role_name": "Prod",
+    "admin_role_ids": [],
     "log_level": "INFO",
     "data_dir": "data",
     "dev_guild_id": None,
@@ -65,9 +65,15 @@ def load_config(config_path: str = "config.yml") -> BotConfig:
     data_dir = Path(yaml_config.get("data_dir", DEFAULT_CONFIG["data_dir"]))
     data_dir.mkdir(parents=True, exist_ok=True)
 
+    admin_ids = [
+        int(role_id)
+        for role_id in yaml_config.get("admin_role_ids", DEFAULT_CONFIG["admin_role_ids"])
+        if str(role_id).strip() != ""
+    ]
+
     return BotConfig(
         prefix=yaml_config.get("prefix", DEFAULT_CONFIG["prefix"]),
-        admin_role_name=yaml_config.get("admin_role_name", DEFAULT_CONFIG["admin_role_name"]),
+        admin_role_ids=admin_ids,
         log_level=yaml_config.get("log_level", DEFAULT_CONFIG["log_level"]),
         data_dir=data_dir,
         dev_guild_id=dev_guild_id,

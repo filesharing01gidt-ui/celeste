@@ -41,8 +41,9 @@ class Economy(commands.Cog):
         return discord.Embed(title=title, description=description, color=color)
 
     def _has_admin_role(self, member: discord.Member) -> bool:
-        expected_role = getattr(self.bot.config, "admin_role_name", None)
-        return expected_role is not None and any(role.name == expected_role for role in member.roles)
+        expected_roles = getattr(self.bot.config, "admin_role_ids", [])
+        expected_ids = {int(role_id) for role_id in expected_roles}
+        return bool(expected_ids) and any(role.id in expected_ids for role in member.roles)
 
     async def _require_admin(self, interaction: discord.Interaction) -> bool:
         if interaction.guild is None or not isinstance(interaction.user, discord.Member):
@@ -56,7 +57,7 @@ class Economy(commands.Cog):
         if not self._has_admin_role(interaction.user):
             embed = self._error_embed(
                 title=":no_entry: You don't have permission",
-                description=f"You need the `{self.bot.config.admin_role_name}` role to do that.",
+                description="You need an admin role to do that.",
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return False
@@ -221,7 +222,7 @@ class Economy(commands.Cog):
             if not self._has_admin_role(interaction.user):
                 embed = self._error_embed(
                     title=":no_entry: You don't have permission",
-                    description=f"You need the `{self.bot.config.admin_role_name}` role to view other teams.",
+                    description="You need an admin role to view other teams.",
                 )
                 await self._send_embed(interaction, embed, ephemeral=True)
                 return

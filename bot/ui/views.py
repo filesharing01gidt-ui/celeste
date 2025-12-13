@@ -35,7 +35,7 @@ class ControlPanelView(discord.ui.View):
         config = self.bot.config
         description = (
             f"Prefix: `{config.prefix}`\n"
-            f"Admin role: `{config.admin_role_name}`\n"
+            f"Admin roles: {', '.join(f'<@&{role_id}>' for role_id in config.admin_role_ids) if config.admin_role_ids else 'Not set'}\n"
             f"Dev guild: `{config.dev_guild_id or 'Global sync'}`"
         )
         await interaction.response.send_message(description, ephemeral=True)

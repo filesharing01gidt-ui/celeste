@@ -27,7 +27,7 @@ A fully wired Discord bot using `discord.py` 2.x showcasing prefix, slash, hybri
 
 4. **Edit `config.yml` if needed**
    - `prefix`: Command prefix for text commands.
-   - `admin_role_name`: Role required for admin commands (defaults to `Prod`).
+- `admin_role_ids`: Role IDs required for admin commands (empty list by default). Use role IDs so names can change safely.
    - `log_level`: Logging verbosity.
    - `data_dir`: Directory for JSON storage.
    - `dev_guild_id`: Optional guild ID for app command sync; speeds up iteration.
