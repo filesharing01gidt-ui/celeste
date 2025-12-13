@@ -1,0 +1,5 @@
+prefix: "!"
+admin_role_name: "Prod"
+log_level: "INFO"
+data_dir: "data"
+dev_guild_id: null
