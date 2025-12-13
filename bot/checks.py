@@ -29,11 +29,10 @@ def prefix_admin_check(role_name: str | None = None) -> Callable[[commands.Conte
     return commands.check(predicate)
 
 
-def app_command_admin_check(role_name: str | None = None) -> app_commands.Check:
+def app_command_admin_check(role_name: str | None = None) -> Callable[[app_commands.Command], app_commands.Command]:
     async def predicate(interaction: discord.Interaction) -> bool:
         if interaction.guild is None or not isinstance(interaction.user, discord.Member):
             raise app_commands.CheckFailure("This command can only be used in a server.")
-
         expected_role = role_name or getattr(getattr(interaction.client, "config", None), "admin_role_name", None)
         if expected_role is None:
             raise app_commands.CheckFailure("Admin role not configured.")
@@ -41,7 +40,10 @@ def app_command_admin_check(role_name: str | None = None) -> app_commands.Check:
             raise app_commands.CheckFailure(f"You need the '{expected_role}' role to run this command.")
         return True
 
-    return app_commands.check(predicate)
+    def decorator(command: app_commands.Command) -> app_commands.Command:
+        return command.check(predicate)
+
+    return decorator
 
 
 def add_app_command_error_handler(bot: commands.Bot) -> None:
