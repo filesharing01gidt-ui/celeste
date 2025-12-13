@@ -40,7 +40,10 @@ def app_command_admin_check(role_name: str | None = None) -> Callable[[app_comma
             raise app_commands.CheckFailure(f"You need the '{expected_role}' role to run this command.")
         return True
 
-    return app_commands.check(predicate)
+    def decorator(command: app_commands.Command) -> app_commands.Command:
+        return command.check(predicate)
+
+    return decorator
 
 
 def add_app_command_error_handler(bot: commands.Bot) -> None:
