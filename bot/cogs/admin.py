@@ -39,40 +39,11 @@ class Admin(commands.Cog):
     async def unlockdown(self, ctx: commands.Context) -> None:
         await self._set_lockdown(ctx, False)
 
-    @app_commands.command(name="lockdown", description="Prevent @everyone from sending messages in this channel")
-    @app_command_admin_check()
-    @app_commands.guild_only()
-    async def lockdown_app(self, interaction: discord.Interaction) -> None:
-        await self._set_lockdown_ctx(interaction, True)
-
-    @app_commands.command(name="unlockdown", description="Allow @everyone to send messages again")
-    @app_command_admin_check()
-    @app_commands.guild_only()
-    async def unlockdown_app(self, interaction: discord.Interaction) -> None:
-        await self._set_lockdown_ctx(interaction, False)
-
-    async def _set_lockdown_ctx(self, interaction: discord.Interaction, lock: bool) -> None:
-        if interaction.guild is None or not isinstance(interaction.channel, discord.TextChannel):
-            await interaction.response.send_message("This command must be used in a text channel.", ephemeral=True)
-            return
-        channel = interaction.channel
-        overwrite = channel.overwrites_for(self._everyone(interaction.guild))
-        overwrite.send_messages = False if lock else None
-        await channel.set_permissions(self._everyone(interaction.guild), overwrite=overwrite)
-        state = "locked down" if lock else "unlocked"
-        await interaction.response.send_message(f"Channel has been {state} for @everyone.", ephemeral=True)
-
     @commands.hybrid_command(name="sync", description="Sync application commands")
     @prefix_admin_check()
     @app_commands.describe(guild_only="Sync only to the configured dev guild")
     async def sync(self, ctx: commands.Context, guild_only: Optional[bool] = None) -> None:
         await self._do_sync(ctx, guild_only)
-
-    @app_commands.command(name="sync", description="Sync application commands")
-    @app_command_admin_check()
-    @app_commands.describe(guild_only="Sync only to the configured dev guild")
-    async def sync_app(self, interaction: discord.Interaction, guild_only: Optional[bool] = None) -> None:
-        await self._do_sync(interaction, guild_only)
 
     async def _do_sync(self, source: commands.Context | discord.Interaction, guild_only: Optional[bool]) -> None:
         if guild_only is None:
