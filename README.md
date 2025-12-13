@@ -40,6 +40,11 @@ A fully wired Discord bot using `discord.py` 2.x showcasing prefix, slash, hybri
    python main.py
    ```
 
+## Slash command tips
+- Make sure you invited the bot with the `applications.commands` scope (alongside the normal `bot` scope) so slash commands can register.
+- Set `GUILD_ID` or `dev_guild_id` to your test server's ID for immediate, per-guild syncing. Without it, global sync can take a while to appear in the `/` menu.
+- If slash commands still do not appear, reinvite the bot with the correct scopes and run the `/sync` command to refresh.
+
 ## Commands
 - `!ping` / `/ping`: Show latency and invocation style.
 - `!about` / `/about`: Bot information.
