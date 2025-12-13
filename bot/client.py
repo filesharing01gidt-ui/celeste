@@ -50,25 +50,23 @@ class BotClient(commands.Bot):
         logger.info("Loaded %d cogs: %s", len(loaded), ", ".join(loaded))
 
     async def _sync_app_commands(self) -> None:
-    try:
-        if self.config.dev_guild_id:
-            guild = discord.Object(id=self.config.dev_guild_id)
-
-            # THIS is the missing piece:
-            self.tree.copy_global_to(guild=guild)
-
-            commands_synced = await self.tree.sync(guild=guild)
-            self.synced = True
-            logger.info("Synced %d app commands to guild %s", len(commands_synced), guild.id)
-        else:
-            commands_synced = await self.tree.sync()
-            self.synced = True
-            logger.info("Globally synced %d app commands; propagation may take time", len(commands_synced))
-    except discord.HTTPException:
-        logger.exception(
-            "Failed to sync application commands. Make sure the bot was invited with the applications.commands scope."
-        )
-
+        """Sync application commands globally or to the configured dev guild."""
+        try:
+            logger.debug("Tree has %d commands before sync", len(self.tree.get_commands()))
+            if self.config.dev_guild_id:
+                guild = discord.Object(id=self.config.dev_guild_id)
+                self.tree.copy_global_to(guild=guild)
+                commands_synced = await self.tree.sync(guild=guild)
+                self.synced = True
+                logger.info("Synced %d app commands to guild %s", len(commands_synced), guild.id)
+            else:
+                commands_synced = await self.tree.sync()
+                self.synced = True
+                logger.info("Globally synced %d app commands; propagation may take time", len(commands_synced))
+        except discord.HTTPException:
+            logger.exception(
+                "Failed to sync application commands. Make sure the bot was invited with the applications.commands scope."
+            )
 
     async def on_ready(self) -> None:
         if not self.synced:
