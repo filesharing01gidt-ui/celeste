@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 MAX_DURATION_SECONDS = 86_400
 ID_CHARSET = string.ascii_uppercase + string.digits
 ID_LENGTH = 5
-EMBED_COLOR = 0xB0B0B0
+EMBED_COLOR = 0xDCD6FF
 
 
 def _parse_duration_seconds(duration: str) -> int:
