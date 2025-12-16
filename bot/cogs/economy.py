@@ -89,12 +89,17 @@ class Economy(commands.Cog):
         return None, embed
 
     async def _send_embed(
-        self, interaction: discord.Interaction, embed: discord.Embed, *, ephemeral: bool = False
+        self,
+        interaction: discord.Interaction,
+        embed: discord.Embed,
+        *,
+        ephemeral: bool = False,
+        content: str | None = None,
     ) -> None:
         if interaction.response.is_done():
-            await interaction.followup.send(embed=embed, ephemeral=ephemeral)
+            await interaction.followup.send(embed=embed, ephemeral=ephemeral, content=content)
         else:
-            await interaction.response.send_message(embed=embed, ephemeral=ephemeral)
+            await interaction.response.send_message(embed=embed, ephemeral=ephemeral, content=content)
 
     def _ensure_whitelisted(
         self, role: discord.Role, whitelisted_ids: set[int]
@@ -233,12 +238,15 @@ class Economy(commands.Cog):
                 return
 
             balance_value = get_balance(data, team_role.id)
+            title = self._role_balance_title(team_role)
             embed = discord.Embed(
-                title=self._role_balance_title(team_role),
+                title=title,
                 description=f"Current Balance: **${balance_value}**",
                 color=team_role.color,
             )
-            await self._send_embed(interaction, embed, ephemeral=True)
+            await self._send_embed(
+                interaction, embed, ephemeral=True, content=f"# {title}"
+            )
             return
 
         team_role_resolved, error_embed = self._resolve_member_team_role(interaction.user, whitelisted_ids)
@@ -248,12 +256,13 @@ class Economy(commands.Cog):
 
         assert team_role_resolved is not None
         balance_value = get_balance(data, team_role_resolved.id)
+        title = self._role_balance_title(team_role_resolved)
         embed = discord.Embed(
-            title=self._role_balance_title(team_role_resolved),
+            title=title,
             description=f"Current Balance: **${balance_value}**",
             color=team_role_resolved.color,
         )
-        await self._send_embed(interaction, embed)
+        await self._send_embed(interaction, embed, content=f"# {title}")
 
     @app_commands.command(name="pay", description="Transfer funds to another team role")
     @app_commands.describe(amount="Amount to transfer", team_role="Recipient team role")
@@ -302,7 +311,7 @@ class Economy(commands.Cog):
                         embed_to_send = self._success_embed(
                             title=":handshake: Transaction Complete!",
                             description=f"Transferred **${amount}** to <@&{team_role.id}>",
-                            color=payer_role.color,
+                            color=team_role.color,
                         )
 
         if embed_to_send is None:
