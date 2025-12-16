@@ -79,6 +79,7 @@ class CountdownEntry:
     channel_id: int
     created_by_user_id: int
     created_at_ts: int
+    start_ts: Optional[int] = None
     end_ts: int
     ping_user_id: Optional[int] = None
     ping_role_id: Optional[int] = None
@@ -93,6 +94,7 @@ class CountdownEntry:
             channel_id=int(data["channel_id"]),
             created_by_user_id=int(data["created_by_user_id"]),
             created_at_ts=int(data["created_at_ts"]),
+            start_ts=int(data["start_ts"]) if data.get("start_ts") is not None else None,
             end_ts=int(data["end_ts"]),
             ping_user_id=int(data["ping_user_id"]) if data.get("ping_user_id") is not None else None,
             ping_role_id=int(data["ping_role_id"]) if data.get("ping_role_id") is not None else None,
@@ -107,6 +109,7 @@ class CountdownEntry:
             "channel_id": self.channel_id,
             "created_by_user_id": self.created_by_user_id,
             "created_at_ts": self.created_at_ts,
+            "start_ts": self.start_ts,
             "end_ts": self.end_ts,
             "ping_user_id": self.ping_user_id,
             "ping_role_id": self.ping_role_id,
@@ -127,6 +130,7 @@ class Countdown(commands.Cog):
         self._tasks: Dict[str, asyncio.Task[None]] = {}
         self._wait_tasks: Dict[str, asyncio.Task[None]] = {}
         self._travel_debounce: Dict[tuple[int, int], float] = {}
+        self._interval_groups: Dict[tuple[int, int, int], Dict[str, object]] = {}
 
     async def cog_load(self) -> None:
         await self._load_existing_countdowns()
@@ -151,12 +155,30 @@ class Countdown(commands.Cog):
             if entry.kind == "travel" and entry.team_role_id is None and entry.ping_role_id is not None:
                 entry.team_role_id = entry.ping_role_id
 
+            if entry.start_ts is None:
+                entry.start_ts = entry.created_at_ts
+
             if entry.end_ts <= now:
                 await self._send_completion(entry)
                 continue
 
             active_entries[entry.id] = entry
             to_schedule.append(entry)
+
+            if entry.kind == "travel" and entry.start_ts > now and entry.team_role_id is not None:
+                key = (entry.guild_id, entry.start_ts, entry.end_ts)
+                group = self._interval_groups.setdefault(
+                    key,
+                    {
+                        "team_role_ids": set(),
+                        "entry_ids": set(),
+                        "thread_id": None,
+                        "member_ids": set(),
+                        "created_at": time.time(),
+                    },
+                )
+                group["team_role_ids"].add(entry.team_role_id)
+                group["entry_ids"].add(entry.id)
 
         async with self._lock:
             self._active = active_entries
@@ -183,7 +205,9 @@ class Countdown(commands.Cog):
             await asyncio.sleep(wait_seconds)
             if entry.id not in self._active:
                 return
-            embed = self._build_started_embed(entry)
+            await self._ensure_interval_thread(entry)
+            embed_color = self._travel_color(entry.guild_id, entry.team_role_id)
+            embed = self._build_started_embed(entry, color=embed_color)
             await interaction.followup.send(embed=embed, content=mention)
         except Exception:
             logger.exception("Failed to send travel start notification for %s", entry.id)
@@ -198,6 +222,7 @@ class Countdown(commands.Cog):
                 if entry.id not in self._active:
                     return
             await self._send_completion(entry)
+            await self._cleanup_interval_group(entry, completed=True)
             await self._remove_entry(entry.id)
         except asyncio.CancelledError:
             logger.info("Countdown %s cancelled before completion", entry.id)
@@ -220,10 +245,14 @@ class Countdown(commands.Cog):
         elif entry.ping_role_id is not None:
             mention = f"<@&{entry.ping_role_id}>"
 
+        embed_color = EMBED_COLOR
+        if entry.kind == "travel":
+            embed_color = self._travel_color(entry.guild_id, entry.team_role_id or entry.ping_role_id)
+
         embed = discord.Embed(
             title=":white_check_mark: Countdown complete!",
             description=f"Ended <t:{entry.end_ts}:R>, at <t:{entry.end_ts}:t>",
-            color=EMBED_COLOR,
+            color=embed_color,
         )
         embed.set_footer(text=f"ID: {entry.id}")
 
@@ -244,11 +273,110 @@ class Countdown(commands.Cog):
             if candidate not in existing_ids:
                 return candidate
 
-    def _build_started_embed(self, entry: CountdownEntry) -> discord.Embed:
+    def _register_interval_group(self, entry: CountdownEntry) -> None:
+        if entry.start_ts is None or entry.team_role_id is None:
+            return
+        key = (entry.guild_id, entry.start_ts, entry.end_ts)
+        group = self._interval_groups.setdefault(
+            key,
+            {
+                "team_role_ids": set(),
+                "entry_ids": set(),
+                "thread_id": None,
+                "member_ids": set(),
+                "created_at": time.time(),
+            },
+        )
+        group["team_role_ids"].add(entry.team_role_id)
+        group["entry_ids"].add(entry.id)
+
+    async def _ensure_interval_thread(self, entry: CountdownEntry) -> Optional[int]:
+        if entry.start_ts is None:
+            return None
+        key = (entry.guild_id, entry.start_ts, entry.end_ts)
+        async with self._lock:
+            group = self._interval_groups.get(key)
+            if not group:
+                return None
+            if group.get("thread_id") not in (None, "pending"):
+                return group["thread_id"]  # type: ignore[return-value]
+            team_role_ids: set[int] = group["team_role_ids"]  # type: ignore[assignment]
+            if len(team_role_ids) < 2:
+                return None
+            if group.get("thread_id") == "pending":
+                return None
+            group["thread_id"] = "pending"
+
+        guild = self.bot.get_guild(entry.guild_id)
+        if guild is None:
+            return None
+
+        channel = self.bot.get_channel(1450520738485506059)
+        if channel is None:
+            try:
+                channel = await self.bot.fetch_channel(1450520738485506059)
+            except Exception:
+                logger.exception("Failed to fetch transit thread channel")
+                return None
+
+        start_dt = datetime.fromtimestamp(entry.start_ts, tz=timezone.utc)
+        end_dt = datetime.fromtimestamp(entry.end_ts, tz=timezone.utc)
+        name = f"{start_dt.strftime('%H:%M')}-{end_dt.strftime('%H:%M')} Transit"
+        try:
+            thread = await channel.create_thread(
+                name=name,
+                type=discord.ChannelType.private_thread,
+                invitable=False,
+                reason="Shared transit interval grouping",
+            )
+        except Exception:
+            logger.exception("Failed to create transit thread")
+            async with self._lock:
+                if key in self._interval_groups:
+                    self._interval_groups[key]["thread_id"] = None
+            return None
+
+        async with self._lock:
+            group = self._interval_groups.get(key)
+            if not group:
+                return thread.id
+            group["thread_id"] = thread.id
+            team_role_ids = group["team_role_ids"]  # type: ignore[assignment]
+            member_ids = group["member_ids"]  # type: ignore[assignment]
+
+        mentions = []
+        for role_id in team_role_ids:
+            role = guild.get_role(role_id)
+            if role:
+                mentions.append(role.mention)
+                for member in role.members:
+                    try:
+                        await thread.add_user(member)
+                        member_ids.add(member.id)
+                    except Exception:
+                        logger.warning("Failed adding member %s to transit thread", member.id)
+
+        body = "You are alone on this travel." if len(team_role_ids) == 1 else "\n".join(mentions)
+        aboard_embed = discord.Embed(
+            title=":question_mark: Who is aboard?",
+            description=body,
+            color=EMBED_COLOR,
+        )
+        try:
+            await thread.send(content=" ".join(mentions) if mentions else None, embed=aboard_embed)
+        except Exception:
+            logger.exception("Failed to send aboard embed to transit thread")
+
+        return thread.id
+
+    def _build_started_embed(
+        self, entry: CountdownEntry, *, color: discord.Color | int | None = None
+    ) -> discord.Embed:
+        embed_color = color if color is not None else EMBED_COLOR
         embed = discord.Embed(
             title=":timer: Countdown Started!",
             description=f"Ends <t:{entry.end_ts}:R>, at <t:{entry.end_ts}:t>",
-            color=EMBED_COLOR,
+            color=embed_color,
         )
         embed.set_footer(text=f"ID: {entry.id}")
         return embed
@@ -287,6 +415,45 @@ class Countdown(commands.Cog):
             color=0xF1C40F,
         )
         return None, embed
+
+    def _travel_color(self, guild_id: int, role_id: Optional[int]) -> discord.Color | int:
+        if role_id is not None:
+            guild = self.bot.get_guild(guild_id)
+            if guild:
+                role = guild.get_role(role_id)
+                if role:
+                    return role.color
+        return EMBED_COLOR
+
+    async def _cleanup_interval_group(self, entry: CountdownEntry, *, completed: bool) -> None:
+        if entry.start_ts is None or entry.kind != "travel":
+            return
+        key = (entry.guild_id, entry.start_ts, entry.end_ts)
+        group = self._interval_groups.get(key)
+        if not group:
+            return
+        entry_ids: set[str] = group.get("entry_ids", set())  # type: ignore[assignment]
+        entry_ids.discard(entry.id)
+        team_role_ids: set[int] = group.get("team_role_ids", set())  # type: ignore[assignment]
+        member_ids: set[int] = group.get("member_ids", set())  # type: ignore[assignment]
+
+        if not entry_ids:
+            thread_id = group.get("thread_id")
+            if thread_id is not None:
+                thread = self.bot.get_channel(thread_id)
+                if isinstance(thread, discord.Thread):
+                    try:
+                        await thread.edit(archived=True, locked=True)
+                    except Exception:
+                        logger.warning("Failed to archive transit thread %s", thread_id)
+                    for member_id in list(member_ids):
+                        member = thread.guild.get_member(member_id) if thread.guild else None
+                        if member:
+                            try:
+                                await thread.remove_user(member)
+                            except Exception:
+                                logger.warning("Failed to remove member %s from transit thread", member_id)
+            self._interval_groups.pop(key, None)
 
     def _find_recent_travel_for_team(self, team_role_id: int) -> Optional[CountdownEntry]:
         candidates = [
@@ -330,7 +497,7 @@ class Countdown(commands.Cog):
         embed = self._permission_embed(
             title=":white_check_mark: Countdown cancelled successfully",
             description=f"Cancelled countdown `{entry.id}` for {team_role.mention}.",
-            color=0x2ECC71,
+            color=team_role.color,
         )
         await interaction.response.send_message(embed=embed)
 
@@ -343,6 +510,7 @@ class Countdown(commands.Cog):
         task = self._tasks.pop(entry.id, None)
         if task:
             task.cancel()
+        await self._cleanup_interval_group(entry, completed=False)
 
     @app_commands.command(name="countdown", description="Start a countdown")
     @app_commands.describe(
@@ -398,6 +566,7 @@ class Countdown(commands.Cog):
             channel_id=interaction.channel.id,
             created_by_user_id=interaction.user.id,
             created_at_ts=now_ts,
+            start_ts=now_ts,
             end_ts=now_ts + duration_seconds,
             ping_user_id=ping_user.id if ping_user else None,
             ping_role_id=ping_role.id if ping_role else None,
@@ -472,6 +641,7 @@ class Countdown(commands.Cog):
             channel_id=interaction.channel.id,
             created_by_user_id=interaction.user.id,
             created_at_ts=int(time.time()),
+            start_ts=start_ts,
             end_ts=start_ts + duration_seconds,
             ping_role_id=team_role.id,
             kind="travel",
@@ -493,6 +663,8 @@ class Countdown(commands.Cog):
                 self._travel_debounce[key] = now_monotonic
                 self._active[entry.id] = entry
                 self._persist()
+                if wait_seconds > 0:
+                    self._register_interval_group(entry)
 
         if debounce_embed is not None:
             await interaction.response.send_message(embed=debounce_embed, ephemeral=True)
@@ -502,20 +674,22 @@ class Countdown(commands.Cog):
 
         mention = f"<@&{team_role.id}>"
         if wait_seconds > 0:
+            embed_color = self._travel_color(interaction.guild.id, team_role.id)
             wait_embed = discord.Embed(
                 title="🚏 You are waiting for your ride…",
                 description=f"Countdown will start <t:{start_ts}:R>, at <t:{start_ts}:t>",
-                color=EMBED_COLOR,
+                color=embed_color,
             )
             wait_embed.set_footer(text=f"ID: {entry.id}")
-            await interaction.response.send_message(embed=wait_embed, content=mention)
+            await interaction.response.send_message(embed=wait_embed)
             wait_task = self.bot.loop.create_task(
                 self._send_travel_start_after_wait(interaction, entry, wait_seconds, mention)
             )
             self._wait_tasks[entry.id] = wait_task
             wait_task.add_done_callback(lambda t, countdown_id=entry.id: self._wait_tasks.pop(countdown_id, None))
         else:
-            embed = self._build_started_embed(entry)
+            embed_color = self._travel_color(interaction.guild.id, team_role.id)
+            embed = self._build_started_embed(entry, color=embed_color)
             await interaction.response.send_message(embed=embed, content=mention)
 
     @app_commands.command(name="cancel_countdown", description="Cancel an active countdown")
