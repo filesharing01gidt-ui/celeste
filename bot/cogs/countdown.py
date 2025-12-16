@@ -79,8 +79,8 @@ class CountdownEntry:
     channel_id: int
     created_by_user_id: int
     created_at_ts: int
-    start_ts: Optional[int] = None
     end_ts: int
+    start_ts: Optional[int] = None
     ping_user_id: Optional[int] = None
     ping_role_id: Optional[int] = None
     kind: str = "countdown"
