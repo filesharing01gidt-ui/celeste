@@ -24,7 +24,6 @@ READ_ONLY_OVERWRITE = discord.PermissionOverwrite(
     add_reactions=None,
     create_public_threads=False,
     create_private_threads=False,
-    create_forum_threads=False,
     send_messages_in_threads=False,
 )
 
