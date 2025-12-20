@@ -244,9 +244,7 @@ class Economy(commands.Cog):
                 description=f"Current Balance: **${balance_value}**",
                 color=team_role.color,
             )
-            await self._send_embed(
-                interaction, embed, ephemeral=True, content=f"# {title}"
-            )
+            await self._send_embed(interaction, embed, ephemeral=True)
             return
 
         team_role_resolved, error_embed = self._resolve_member_team_role(interaction.user, whitelisted_ids)
@@ -262,7 +260,7 @@ class Economy(commands.Cog):
             description=f"Current Balance: **${balance_value}**",
             color=team_role_resolved.color,
         )
-        await self._send_embed(interaction, embed, content=f"# {title}")
+        await self._send_embed(interaction, embed)
 
     @app_commands.command(name="pay", description="Transfer funds to another team role")
     @app_commands.describe(amount="Amount to transfer", team_role="Recipient team role")

@@ -134,11 +134,16 @@ class Teleport(commands.Cog):
         return max(matches, key=lambda p: p.timestamp)
 
     async def _delete_ping_records(
-        self, guild: discord.Guild, pings: List[TeleportPing], *, keep_channel_ids: set[int]
+        self,
+        guild: discord.Guild,
+        pings: List[TeleportPing],
+        *,
+        keep_channel_ids: set[int],
+        team_role_id: int,
     ) -> List[TeleportPing]:
         remaining: List[TeleportPing] = []
         for ping in pings:
-            if ping.guild_id != guild.id:
+            if ping.guild_id != guild.id or ping.team_role_id != team_role_id:
                 remaining.append(ping)
                 continue
             if keep_channel_ids and ping.channel_id in keep_channel_ids:
@@ -389,7 +394,9 @@ class Teleport(commands.Cog):
         async with self._lock:
             data = self._load_data()
             current_pings: List[TeleportPing] = data.get("pings", [])
-            cleaned = await self._delete_ping_records(guild, current_pings, keep_channel_ids=keep_channels)
+            cleaned = await self._delete_ping_records(
+                guild, current_pings, keep_channel_ids=keep_channels, team_role_id=team_role.id
+            )
             data["pings"] = cleaned
             self._save_data(data)
 
@@ -419,9 +426,9 @@ class Teleport(commands.Cog):
 
         await message.channel.send(
             embed=self._success_embed(
-                title=":rocket: Teleported!",
-                description=f"Head over to {target_channel.mention}.",
-                color=0x3498DB,
+                title="✨ Moved!",
+                description=f"Moved to {target_channel.mention}.",
+                color=0xDCD6FF,
             )
         )
 
