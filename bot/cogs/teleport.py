@@ -318,11 +318,6 @@ class Teleport(commands.Cog):
             self._debounce[debounce_key] = time.monotonic()
 
     async def _handle_routeinfo(self, message: discord.Message) -> None:
-        try:
-            await message.delete()
-        except Exception:
-            logger.debug("Failed to delete routeinfo message")
-
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
 
