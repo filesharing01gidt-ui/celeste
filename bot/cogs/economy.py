@@ -23,14 +23,6 @@ from bot.economy_store import (
 logger = logging.getLogger(__name__)
 
 
-class Economy(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
-        self.economy_path = Path(self.bot.config.data_dir) / "economy.json"
-        self._lock = asyncio.Lock()
-        self._leaderboard_page_size = 10
-
-
 class LeaderboardView(discord.ui.View):
     def __init__(
         self,
@@ -98,7 +90,15 @@ class LeaderboardView(discord.ui.View):
         self._update_buttons()
         await interaction.response.edit_message(embed=self.make_embed(self.page, self._page_count(), self._slice_entries()), view=self)
 
+
+class Economy(commands.Cog):
     whitelist = app_commands.Group(name="whitelist", description="Manage whitelisted team roles")
+
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+        self.economy_path = Path(self.bot.config.data_dir) / "economy.json"
+        self._lock = asyncio.Lock()
+        self._leaderboard_page_size = 10
 
     # -----------------
     # Helper utilities
