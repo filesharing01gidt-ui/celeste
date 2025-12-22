@@ -52,7 +52,12 @@ class BotClient(commands.Bot):
     async def _sync_app_commands(self) -> None:
         """Sync application commands globally or to the configured dev guild."""
         try:
-            logger.debug("Tree has %d commands before sync", len(self.tree.get_commands()))
+            commands = self.tree.get_commands()
+            logger.debug(
+                "Syncing app commands (%d total): %s",
+                len(commands),
+                ", ".join(cmd.qualified_name for cmd in commands),
+            )
             if self.config.dev_guild_id:
                 guild = discord.Object(id=self.config.dev_guild_id)
                 self.tree.copy_global_to(guild=guild)
@@ -80,4 +85,3 @@ class BotClient(commands.Bot):
             return
         logger.exception("Command error: %s", error)
         await ctx.send("An unexpected error occurred.")
-
