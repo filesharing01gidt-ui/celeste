@@ -28,6 +28,75 @@ class Economy(commands.Cog):
         self.bot = bot
         self.economy_path = Path(self.bot.config.data_dir) / "economy.json"
         self._lock = asyncio.Lock()
+        self._leaderboard_page_size = 10
+
+
+class LeaderboardView(discord.ui.View):
+    def __init__(
+        self,
+        *,
+        entries: list[tuple[str, int, int]],
+        page_size: int,
+        invoker_id: int,
+        make_embed,
+    ):
+        super().__init__(timeout=180)
+        self.entries = entries
+        self.page_size = page_size
+        self.page = 0
+        self.invoker_id = invoker_id
+        self.make_embed = make_embed
+        self._update_buttons()
+
+    def _page_count(self) -> int:
+        if not self.entries:
+            return 1
+        return max(1, (len(self.entries) + self.page_size - 1) // self.page_size)
+
+    def _update_buttons(self) -> None:
+        total = self._page_count()
+        for child in self.children:
+            if isinstance(child, discord.ui.Button):
+                if child.custom_id == "leaderboard_prev":
+                    child.disabled = self.page <= 0
+                elif child.custom_id == "leaderboard_next":
+                    child.disabled = self.page >= total - 1
+
+    def _slice_entries(self) -> list[tuple[str, int, int]]:
+        start = self.page * self.page_size
+        end = start + self.page_size
+        return self.entries[start:end]
+
+    async def _ensure_invoker(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.invoker_id:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title=":no_entry: Not allowed",
+                    description="Only the command invoker can use these buttons.",
+                    color=0xE74C3C,
+                ),
+                ephemeral=True,
+            )
+            return False
+        return True
+
+    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary, custom_id="leaderboard_prev")
+    async def on_prev(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
+        if not await self._ensure_invoker(interaction):
+            return
+        if self.page > 0:
+            self.page -= 1
+        self._update_buttons()
+        await interaction.response.edit_message(embed=self.make_embed(self.page, self._page_count(), self._slice_entries()), view=self)
+
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, custom_id="leaderboard_next")
+    async def on_next(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
+        if not await self._ensure_invoker(interaction):
+            return
+        if self.page < self._page_count() - 1:
+            self.page += 1
+        self._update_buttons()
+        await interaction.response.edit_message(embed=self.make_embed(self.page, self._page_count(), self._slice_entries()), view=self)
 
     whitelist = app_commands.Group(name="whitelist", description="Manage whitelisted team roles")
 
@@ -95,11 +164,12 @@ class Economy(commands.Cog):
         *,
         ephemeral: bool = False,
         content: str | None = None,
+        view: discord.ui.View | None = None,
     ) -> None:
         if interaction.response.is_done():
-            await interaction.followup.send(embed=embed, ephemeral=ephemeral, content=content)
+            await interaction.followup.send(embed=embed, ephemeral=ephemeral, content=content, view=view)
         else:
-            await interaction.response.send_message(embed=embed, ephemeral=ephemeral, content=content)
+            await interaction.response.send_message(embed=embed, ephemeral=ephemeral, content=content, view=view)
 
     def _ensure_whitelisted(
         self, role: discord.Role, whitelisted_ids: set[int]
@@ -118,6 +188,26 @@ class Economy(commands.Cog):
 
     def _save_data(self, data: EconomyData) -> None:
         save_economy(self.economy_path, data)
+
+    def _make_leaderboard_embed(
+        self, page: int, page_count: int, entries: list[tuple[str, int, int]]
+    ) -> discord.Embed:
+        lines: list[str] = []
+        rank_offset = page * self._leaderboard_page_size
+        if not entries:
+            lines.append("No balances found.")
+        else:
+            for idx, (display, balance, role_id) in enumerate(entries, start=1):
+                rank = rank_offset + idx
+                lines.append(f"#{rank} {display} — ${balance:,}")
+
+        embed = self._success_embed(
+            title=":trophy: Leaderboard",
+            description="\n".join(lines),
+            color=0x2ECC71,
+        )
+        embed.set_footer(text=f"Page {page + 1} / {page_count}")
+        return embed
 
     # -----------------
     # Whitelist commands
@@ -207,6 +297,45 @@ class Economy(commands.Cog):
     # -----------------
     # Balance & payments
     # -----------------
+    @app_commands.command(name="leaderboard", description="Show the team role balance leaderboard")
+    @app_commands.guild_only()
+    async def leaderboard(self, interaction: discord.Interaction) -> None:
+        if not await self._require_admin(interaction):
+            return
+
+        async with self._lock:
+            data = self._load_data()
+            balances = {int(role_id): amount for role_id, amount in data.balances.items()}
+
+        if interaction.guild is None:
+            embed = self._error_embed(
+                title=":no_entry: Guild only",
+                description="This command must be used inside a server.",
+            )
+            await self._send_embed(interaction, embed, ephemeral=True)
+            return
+
+        entries: list[tuple[str, int, int]] = []
+        for role_id, amount in balances.items():
+            if amount is None:
+                continue
+            role = interaction.guild.get_role(role_id)
+            display = role.mention if role else f"Role {role_id}"
+            entries.append((display, int(amount), role_id))
+
+        entries.sort(key=lambda item: item[1], reverse=True)
+
+        page_count = max(1, (len(entries) + self._leaderboard_page_size - 1) // self._leaderboard_page_size)
+        initial_entries = entries[: self._leaderboard_page_size]
+        embed = self._make_leaderboard_embed(0, page_count, initial_entries)
+        view = LeaderboardView(
+            entries=entries,
+            page_size=self._leaderboard_page_size,
+            invoker_id=interaction.user.id,
+            make_embed=lambda page, total, slice_entries: self._make_leaderboard_embed(page, total, slice_entries),
+        )
+        await self._send_embed(interaction, embed, ephemeral=True, view=view)
+
     @app_commands.command(name="balance", description="Check a team role balance")
     @app_commands.describe(team_role="Optional team role to inspect (admin only)")
     @app_commands.guild_only()
@@ -346,7 +475,7 @@ class Economy(commands.Cog):
             allowed, embed_error = self._ensure_whitelisted(team_role, whitelisted_ids)
             if not allowed:
                 assert embed_error is not None
-                await self._send_embed(interaction, embed_error, ephemeral=not show)
+                await self._send_embed(interaction, embed_error, ephemeral=False)
                 return
 
             old_balance = get_balance(data, team_role.id)
@@ -354,32 +483,32 @@ class Economy(commands.Cog):
             if operation == "reset":
                 if amount < 0:
                     embed = self._invalid_amount_embed("Amount must be greater than or equal to zero.")
-                    await self._send_embed(interaction, embed, ephemeral=not show)
+                    await self._send_embed(interaction, embed, ephemeral=False)
                     return
                 new_balance = amount
             elif operation == "set":
                 if amount < 0:
                     embed = self._invalid_amount_embed("Amount must be greater than or equal to zero.")
-                    await self._send_embed(interaction, embed, ephemeral=not show)
+                    await self._send_embed(interaction, embed, ephemeral=False)
                     return
                 new_balance = amount
             elif operation == "add":
                 if amount <= 0:
                     embed = self._invalid_amount_embed("Please provide a positive amount to add.")
-                    await self._send_embed(interaction, embed, ephemeral=not show)
+                    await self._send_embed(interaction, embed, ephemeral=False)
                     return
                 new_balance = old_balance + amount
             elif operation == "remove":
                 if amount <= 0:
                     embed = self._invalid_amount_embed("Please provide a positive amount to remove.")
-                    await self._send_embed(interaction, embed, ephemeral=not show)
+                    await self._send_embed(interaction, embed, ephemeral=False)
                     return
                 if amount > old_balance:
                     embed = self._error_embed(
                         title=":no_entry: Insufficient funds",
                         description="Insufficient funds to remove that amount.",
                     )
-                    await self._send_embed(interaction, embed, ephemeral=not show)
+                    await self._send_embed(interaction, embed, ephemeral=False)
                     return
                 new_balance = old_balance - amount
             else:
@@ -408,7 +537,7 @@ class Economy(commands.Cog):
             ),
             color=team_role.color,
         )
-        await self._send_embed(interaction, embed, ephemeral=not show)
+        await self._send_embed(interaction, embed, ephemeral=False)
 
     @app_commands.command(name="reset_balance", description="Reset a team role balance")
     @app_commands.describe(team_role="Team role to reset", amount="Amount to reset to", show="Show publicly")
