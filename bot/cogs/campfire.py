@@ -166,7 +166,7 @@ class Campfire(commands.Cog):
 
     def _add_firewood(self, team_role_id: int) -> int:
         state = self._get_state(team_role_id)
-        state.fuel_points += 3
+        state.fuel_points += 4
         self._persist()
         return state.fuel_points
 
