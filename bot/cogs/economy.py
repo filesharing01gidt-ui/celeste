@@ -166,10 +166,15 @@ class Economy(commands.Cog):
         content: str | None = None,
         view: discord.ui.View | None = None,
     ) -> None:
+        kwargs: dict = {"embed": embed, "ephemeral": ephemeral}
+        if content is not None:
+            kwargs["content"] = content
+        if view is not None:
+            kwargs["view"] = view
         if interaction.response.is_done():
-            await interaction.followup.send(embed=embed, ephemeral=ephemeral, content=content, view=view)
+            await interaction.followup.send(**kwargs)
         else:
-            await interaction.response.send_message(embed=embed, ephemeral=ephemeral, content=content, view=view)
+            await interaction.response.send_message(**kwargs)
 
     def _ensure_whitelisted(
         self, role: discord.Role, whitelisted_ids: set[int]

@@ -52,7 +52,10 @@ def add_app_command_error_handler(bot: commands.Bot) -> None:
     @bot.tree.error
     async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
         if isinstance(error, app_commands.CheckFailure):
-            await interaction.response.send_message(str(error), ephemeral=True)
+            if interaction.response.is_done():
+                await interaction.followup.send(str(error), ephemeral=True)
+            else:
+                await interaction.response.send_message(str(error), ephemeral=True)
             return
         logger.exception("App command error: %s", error)
         message = "An unexpected error occurred. Please try again later."
