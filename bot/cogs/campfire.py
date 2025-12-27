@@ -38,7 +38,7 @@ BEAR_MESSAGES = [
 ]
 MERCY_SECONDS = 20 * 60
 MIN_BEAR_DELAY = 30
-MAX_BEAR_DELAY = 180
+MAX_BEAR_DELAY = 150
 
 
 class Campfire(commands.Cog):
@@ -149,7 +149,7 @@ class Campfire(commands.Cog):
     async def _apply_bear_damage(self, team_role: discord.Role, channel: discord.TextChannel) -> None:
         async with self._lock:
             state = self._get_state(team_role.id)
-            damage = random.randint(3, 5)
+            damage = random.randint(5, 10)
             state.fuel_points = max(0, state.fuel_points - damage)
             self._persist()
             fuel = state.fuel_points
