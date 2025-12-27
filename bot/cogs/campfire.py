@@ -17,9 +17,13 @@ logger = logging.getLogger(__name__)
 
 CAMP_COLOR = 0xE67E22
 BEAR_IMAGE_URLS = [
-    "https://example.com/bear1.png",
-    "https://example.com/bear2.png",
-    "https://example.com/bear3.png",
+    "https://media.discordapp.net/attachments/1416695622374916178/1454542302386065540/image.png?ex=69517794&is=69502614&hm=f6b557b93f6977e9aadb22289d9c5501fbed82c847081efdc66ee689ec944229&=&format=webp&quality=lossless&width=1290&height=896",
+    "https://media.discordapp.net/attachments/1416695622374916178/1454542410855088250/image.png?ex=695177ae&is=6950262e&hm=5ca33260a1bcf9173c33a9a7c8fb60ac4495e3e9b0ac3179e49e2f39c59bc43c&=&format=webp&quality=lossless&width=1230&height=861",
+    "https://media.discordapp.net/attachments/1416695622374916178/1454542540425527296/image.png?ex=695177cd&is=6950264d&hm=6b0dcc1cd4ce00c9a88b1618cf3c7110d27f45f1aefda45ed40a41ff20727474&=&format=webp&quality=lossless&width=1272&height=1037",
+    "https://media.discordapp.net/attachments/1416695622374916178/1454542676652195925/image.png?ex=695177ee&is=6950266e&hm=ac18b331e43efa0ff0ddcacefae502614f9c90b33ef287c0bc5ca5b68388e892&=&format=webp&quality=lossless&width=551&height=851",
+    "https://media.discordapp.net/attachments/1416695622374916178/1454542726702956554/image.png?ex=695177fa&is=6950267a&hm=691433c02e45f0a38527ca8d0411f1bec407c00ea66548e8082447312ced95ed&=&format=webp&quality=lossless&width=1130&height=921",
+    "https://media.discordapp.net/attachments/1416695622374916178/1454542837101232280/image.png?ex=69517814&is=69502694&hm=19b491e7e41b840f00fc687fa13b04ff08a4f9ce2f4bd3581b22ff514665535e&=&format=webp&quality=lossless&width=581&height=1002",
+    "https://media.discordapp.net/attachments/1416695622374916178/1454543277285048553/image.png?ex=6951787d&is=695026fd&hm=1cc289174955461858c039b7d22e37cba7b713d41c857f5bc0eccfb2c39c1be6&=&format=webp&quality=lossless&width=752&height=714",
 ]
 BEAR_MESSAGES = [
     "# A bear is approaching!",
