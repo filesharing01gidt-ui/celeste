@@ -38,7 +38,7 @@ BEAR_MESSAGES = [
 ]
 MERCY_SECONDS = 20 * 60
 MIN_BEAR_DELAY = 30
-MAX_BEAR_DELAY = 240
+MAX_BEAR_DELAY = 180
 
 
 class Campfire(commands.Cog):
@@ -135,7 +135,12 @@ class Campfire(commands.Cog):
         try:
             await self.bot.wait_for("message", timeout=5, check=check)
             try:
-                await channel.send(embed=discord.Embed(title="The bear retreats!", color=CAMP_COLOR))
+                await channel.send(
+                    embed=discord.Embed(
+                        title="The bear retreats... but it will be back for more",
+                        color=CAMP_COLOR,
+                    )
+                )
             except Exception:
                 logger.debug("Failed to send retreat embed")
         except asyncio.TimeoutError:
