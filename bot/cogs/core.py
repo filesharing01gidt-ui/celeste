@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from random import randint
 
 import discord
 from discord import app_commands
@@ -41,6 +42,23 @@ class Core(commands.Cog):
             return
         new_value = increment_counter(self.counter_path, ctx.guild.id)
         await ctx.reply(f"Counter incremented to `{new_value}` for this server.")
+
+    @commands.command(name="random", description="Get a random integer between two bounds")
+    async def random_prefix(self, ctx: commands.Context, low: str | None = None, high: str | None = None) -> None:
+        if low is None or high is None:
+            await ctx.send("Usage: !random <low> <high>")
+            return
+        try:
+            low_int = int(low)
+            high_int = int(high)
+        except ValueError:
+            await ctx.send("Usage: !random <low> <high>")
+            return
+
+        if low_int > high_int:
+            low_int, high_int = high_int, low_int
+
+        await ctx.send(str(randint(low_int, high_int)))
 
     @commands.Cog.listener()
     async def on_app_command_completion(self, interaction: discord.Interaction, command: app_commands.Command) -> None:

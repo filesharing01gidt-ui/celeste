@@ -80,6 +80,9 @@ class BotClient(commands.Bot):
         logger.info("Logged in as %s | %s | %d cogs", self.user, guild_mode, len(self.cogs))
 
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError) -> None:
+        if isinstance(error, commands.CommandNotFound):
+            # Ignore unknown prefix commands (e.g., stray "!" messages)
+            return
         if isinstance(error, commands.CheckFailure):
             await ctx.send(str(error))
             return
