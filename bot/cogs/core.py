@@ -58,7 +58,8 @@ class Core(commands.Cog):
         if low_int > high_int:
             low_int, high_int = high_int, low_int
 
-        await ctx.send(str(randint(low_int, high_int)))
+        value = randint(low_int, high_int)
+        await ctx.send(f"Your number is... **{value}**")
 
     @commands.Cog.listener()
     async def on_app_command_completion(self, interaction: discord.Interaction, command: app_commands.Command) -> None:
