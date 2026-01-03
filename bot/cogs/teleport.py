@@ -27,6 +27,10 @@ READ_ONLY_OVERWRITE = discord.PermissionOverwrite(
     send_messages_in_threads=False,
 )
 
+TANGO_PREFIX = "?tango-"
+TANGO_ALLOWED = set("ABCDEFGHIJKL")
+TANGO_ANSWER = "CFJHAELIBGDK"
+
 
 class Teleport(commands.Cog):
     teleport = app_commands.Group(name="teleport", description="Manage teleport triggers")
@@ -278,7 +282,12 @@ class Teleport(commands.Cog):
         if message.author.bot or message.guild is None or not message.content.startswith("?"):
             return
 
-        content = message.content
+        content = message.content.strip()
+
+        if content.lower().startswith(TANGO_PREFIX):
+            await self._handle_tango(message, content)
+            return
+
         if content.startswith("?routeinfo"):
             await self._handle_routeinfo(message)
             return
@@ -316,6 +325,30 @@ class Teleport(commands.Cog):
         async with lock:
             await self._handle_teleport(message, team_role, triggers[key])
             self._debounce[debounce_key] = time.monotonic()
+
+    async def _handle_tango(self, message: discord.Message, content: str) -> None:
+        if not isinstance(message.author, discord.Member):
+            return
+        raw_letters = content[len(TANGO_PREFIX) :].strip()
+        letters = raw_letters.upper()
+
+        if len(letters) != 12:
+            await message.channel.send(embed=self._error_embed(":warning: Invalid length", "You must provide exactly 12 letters."))
+            return
+
+        if any(ch not in TANGO_ALLOWED for ch in letters):
+            await message.channel.send(embed=self._error_embed(":warning: Invalid letters", "Only letters A–L are allowed."))
+            return
+
+        if len(set(letters)) != 12:
+            await message.channel.send(embed=self._error_embed(":warning: Duplicate letters", "Duplicate letters are not allowed."))
+            return
+
+        correct_positions = sum(letters[i] == TANGO_ANSWER[i] for i in range(12))
+        if correct_positions == 12:
+            await message.channel.send(":white_check_mark: Correct! Run `?routeinfo5-4`")
+        else:
+            await message.channel.send(f"## {correct_positions}/12")
 
     async def _handle_routeinfo(self, message: discord.Message) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
