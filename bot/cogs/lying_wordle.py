@@ -10,8 +10,8 @@ from discord.ext import commands
 
 logger = logging.getLogger(__name__)
 
-WORDLE_PREFIX = "?wordle("
-WORDLE_PATTERN = re.compile(r"^\?wordle\((\d+)\)-([A-Za-z]+)\s*$")
+WORDLE_PREFIX = "?wordle"
+WORDLE_PATTERN = re.compile(r"^\?wordle(\d+)-([A-Za-z]+)\s*$")
 WORDLE_SOLUTIONS = {
     1: "KAHVE",
     2: "BAZAAR",
@@ -20,13 +20,17 @@ WORDLE_SOLUTIONS = {
 
 EMOJI_GREEN = "🟩"
 EMOJI_YELLOW = "🟨"
-EMOJI_GRAY = ":graysquare:"
+EMOJI_GRAY = "◻️"
 
 
 class LyingWordle(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.wordlist = self._load_wordlist()
+
+    def _error_embed(self, title: str, description: str, *, color: int = 0xE74C3C) -> discord.Embed:
+        embed = discord.Embed(title=title, description=description, color=color)
+        return embed
 
     def _load_wordlist(self) -> set[str]:
         wordlist_path = Path(__file__).resolve().parent.parent / "assets" / "wordlist_5_7.txt"
@@ -89,15 +93,21 @@ class LyingWordle(commands.Cog):
 
         solution = WORDLE_SOLUTIONS.get(wordle_id)
         if solution is None:
-            await message.reply("Unknown Wordle ID.")
+            await message.reply(
+                embed=self._error_embed(":warning: Unknown Wordle ID", "Please check the Wordle ID and try again.")
+            )
             return
 
         if len(guess) != len(solution):
-            await message.reply(f"Guess must be {len(solution)} letters.")
+            await message.reply(
+                embed=self._error_embed(
+                    ":warning: Invalid length", f"Guess must be {len(solution)} letters."
+                )
+            )
             return
 
         if guess not in self.wordlist:
-            await message.reply("Not in word list.")
+            await message.reply(embed=self._error_embed(":warning: Invalid word", "Invalid word."))
             return
 
         true_emojis = self._true_feedback(guess, solution)
