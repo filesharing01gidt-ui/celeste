@@ -20,7 +20,8 @@ WORDLE_SOLUTIONS = {
 
 EMOJI_GREEN = "🟩"
 EMOJI_YELLOW = "🟨"
-EMOJI_GRAY = "◻️"
+EMOJI_GRAY = "⬜"
+EMOJI_CHECK = "✅"
 
 
 class LyingWordle(commands.Cog):
@@ -112,7 +113,7 @@ class LyingWordle(commands.Cog):
 
         true_emojis = self._true_feedback(guess, solution)
         if guess == solution:
-            await message.reply("".join(true_emojis) + " :white_check_mark: Correct! Run `?routeinfo5-4`")
+            await message.reply(EMOJI_CHECK * len(solution))
             return
 
         lied_emojis = self._apply_lie(true_emojis, wordle_id, guess)

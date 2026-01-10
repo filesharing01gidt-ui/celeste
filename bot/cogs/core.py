@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
+from pathlib import Path
+from random import randint
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from random import randint
 
@@ -60,6 +64,17 @@ class Core(commands.Cog):
 
         value = randint(low_int, high_int)
         await ctx.send(f"Your number is... **{value}**")
+
+    @commands.command(name="whattimeisit", description="Show the current time in EST")
+    async def what_time_is_it(self, ctx: commands.Context) -> None:
+        now = datetime.now(ZoneInfo("America/New_York"))
+        timestamp = now.strftime("%I:%M %p %Z").lstrip("0")
+        embed = discord.Embed(
+            title="🕰️ What time is it?",
+            description=f"It is **{timestamp}**",
+            color=0xF5C6E5,
+        )
+        await ctx.send(embed=embed)
 
     @commands.Cog.listener()
     async def on_app_command_completion(self, interaction: discord.Interaction, command: app_commands.Command) -> None:
