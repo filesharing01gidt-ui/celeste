@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 class BotClient(commands.Bot):
     def __init__(self, config: BotConfig, intents: discord.Intents):
-        super().__init__(command_prefix=config.prefix, intents=intents)
+        prefixes = {config.prefix, "?"}
+        super().__init__(command_prefix=commands.when_mentioned_or(*sorted(prefixes)), intents=intents)
         self.config = config
         self.synced = False
 

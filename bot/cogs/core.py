@@ -72,7 +72,7 @@ class Core(commands.Cog):
         now = datetime.now(tz)
         timestamp = f"{now.hour % 12 or 12}:{now.minute:02d} EST"
         embed = discord.Embed(
-            title="🕰️ What time is it?",
+            title="🕓 What time is it?",
             description=f"It is **{timestamp}**",
             color=0xF5C6E5,
         )
