@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from random import randint
 from zoneinfo import ZoneInfo
-from pathlib import Path
-from random import randint
 
 import discord
 from discord import app_commands
@@ -67,8 +65,12 @@ class Core(commands.Cog):
 
     @commands.command(name="whattimeisit", description="Show the current time in EST")
     async def what_time_is_it(self, ctx: commands.Context) -> None:
-        now = datetime.now(ZoneInfo("America/New_York"))
-        timestamp = now.strftime("%I:%M %p %Z").lstrip("0")
+        try:
+            tz = ZoneInfo("America/New_York")
+        except Exception:
+            tz = timezone(timedelta(hours=-5), name="EST")
+        now = datetime.now(tz)
+        timestamp = f"{now.hour % 12 or 12}:{now.minute:02d} EST"
         embed = discord.Embed(
             title="🕰️ What time is it?",
             description=f"It is **{timestamp}**",
