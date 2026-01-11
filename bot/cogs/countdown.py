@@ -132,6 +132,36 @@ class Countdown(commands.Cog):
         self._travel_debounce: Dict[tuple[int, int], float] = {}
         self._interval_groups: Dict[tuple[int, int, int], Dict[str, object]] = {}
 
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message) -> None:
+        if message.author.bot or message.guild is None:
+            return
+        if not message.content.lower().startswith("?vanuatutrivia"):
+            return
+
+        if message.channel is None:
+            return
+
+        now_ts = int(time.time())
+        entry = CountdownEntry(
+            id=self._generate_unique_id(),
+            guild_id=message.guild.id,
+            channel_id=message.channel.id,
+            created_by_user_id=message.author.id,
+            created_at_ts=now_ts,
+            start_ts=now_ts,
+            end_ts=now_ts + 7,
+            kind="countdown",
+        )
+
+        async with self._lock:
+            self._active[entry.id] = entry
+            self._persist()
+        self._schedule_countdown(entry)
+
+        embed = self._build_started_embed(entry)
+        await message.channel.send(embed=embed)
+
     async def cog_load(self) -> None:
         await self._load_existing_countdowns()
 
