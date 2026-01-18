@@ -46,6 +46,18 @@ class Admin(commands.Cog):
     async def sync(self, ctx: commands.Context, guild_only: Optional[bool] = None) -> None:
         await self._do_sync(ctx, guild_only)
 
+    @commands.command(name="echo", description="Make the bot say something in a channel")
+    @prefix_admin_check()
+    async def echo(self, ctx: commands.Context, channel: discord.TextChannel, *, message: str) -> None:
+        if ctx.guild is None:
+            await ctx.send("This command must be used in a server.")
+            return
+        if not message.strip():
+            await ctx.send("Usage: !echo #channel <message>")
+            return
+        await channel.send(message)
+        await ctx.send(f"Sent to {channel.mention}.")
+
     async def _do_sync(self, source: commands.Context | discord.Interaction, guild_only: Optional[bool]) -> None:
         if guild_only is None:
             guild_only = self.bot.config.dev_guild_id is not None
