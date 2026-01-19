@@ -63,8 +63,6 @@ class BirriaTrivia(commands.Cog):
             return
 
         score = sum(1 for guess_char, answer_char in zip(guess, BIRRIA_ANSWER) if guess_char == answer_char)
-        if guess == BIRRIA_ANSWER:
-            score = 9
 
         await message.reply(f"## {score}/11", mention_author=False)
 
