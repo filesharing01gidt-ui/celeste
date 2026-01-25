@@ -8,6 +8,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from bot.checks import prefix_admin_check
+from bot.checks import app_command_admin_check, prefix_admin_check
 
 logger = logging.getLogger(__name__)
 
