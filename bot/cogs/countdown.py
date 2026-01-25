@@ -79,7 +79,7 @@ class CountdownEntry:
     channel_id: int
     created_by_user_id: int
     created_at_ts: int
-    end_ts: int
+    end_ts: float
     start_ts: Optional[int] = None
     ping_user_id: Optional[int] = None
     ping_role_id: Optional[int] = None
@@ -95,7 +95,7 @@ class CountdownEntry:
             created_by_user_id=int(data["created_by_user_id"]),
             created_at_ts=int(data["created_at_ts"]),
             start_ts=int(data["start_ts"]) if data.get("start_ts") is not None else None,
-            end_ts=int(data["end_ts"]),
+            end_ts=float(data["end_ts"]),
             ping_user_id=int(data["ping_user_id"]) if data.get("ping_user_id") is not None else None,
             ping_role_id=int(data["ping_role_id"]) if data.get("ping_role_id") is not None else None,
             kind=data.get("kind", "countdown"),
@@ -136,21 +136,23 @@ class Countdown(commands.Cog):
     async def on_message(self, message: discord.Message) -> None:
         if message.author.bot or message.guild is None:
             return
-        if not message.content.lower().startswith("?vanuatutrivia"):
+        content = message.content.lower()
+        if not (content.startswith("?vanuatutrivia") or content.startswith("?seasontriviaq")):
             return
 
         if message.channel is None:
             return
 
-        now_ts = int(time.time())
+        now_ts = time.time()
+        duration_seconds = 15.75 if content.startswith("?seasontriviaq") else 7
         entry = CountdownEntry(
             id=self._generate_unique_id(),
             guild_id=message.guild.id,
             channel_id=message.channel.id,
             created_by_user_id=message.author.id,
-            created_at_ts=now_ts,
-            start_ts=now_ts,
-            end_ts=now_ts + 7,
+            created_at_ts=int(now_ts),
+            start_ts=int(now_ts),
+            end_ts=now_ts + duration_seconds,
             kind="countdown",
         )
 
@@ -279,9 +281,10 @@ class Countdown(commands.Cog):
         if entry.kind == "travel":
             embed_color = self._travel_color(entry.guild_id, entry.team_role_id or entry.ping_role_id)
 
+        display_ts = int(entry.end_ts)
         embed = discord.Embed(
             title=":white_check_mark: Countdown complete!",
-            description=f"Ended <t:{entry.end_ts}:R>, at <t:{entry.end_ts}:t>",
+            description=f"Ended <t:{display_ts}:R>, at <t:{display_ts}:t>",
             color=embed_color,
         )
         embed.set_footer(text=f"ID: {entry.id}")
@@ -403,9 +406,10 @@ class Countdown(commands.Cog):
         self, entry: CountdownEntry, *, color: discord.Color | int | None = None
     ) -> discord.Embed:
         embed_color = color if color is not None else EMBED_COLOR
+        display_ts = int(entry.end_ts)
         embed = discord.Embed(
             title=":timer: Countdown Started!",
-            description=f"Ends <t:{entry.end_ts}:R>, at <t:{entry.end_ts}:t>",
+            description=f"Ends <t:{display_ts}:R>, at <t:{display_ts}:t>",
             color=embed_color,
         )
         embed.set_footer(text=f"ID: {entry.id}")
